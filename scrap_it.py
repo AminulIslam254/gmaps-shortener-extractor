@@ -28,6 +28,10 @@ def extract_coordinates(map_url):
         return lat, lng
     return None, None
 
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({"message": "Welcome! The Flask server is running."})
+
 @app.route('/get-coordinates', methods=['POST'])
 def get_coordinates():
     data = request.get_json()
