@@ -7,8 +7,9 @@ import requests
 
 app = Flask(__name__)
 
-defoptions = Options()
-    options.add_argument("--headless=new")
+def extract_coordinates(map_url):
+    options = Options()
+    options.add_argument("--headless=new") 
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
 
@@ -29,7 +30,6 @@ defoptions = Options()
 
 @app.route('/get-coordinates', methods=['POST'])
 def get_coordinates():
-    
     data = request.get_json()
     map_url = data.get('url')
 
@@ -47,4 +47,4 @@ def get_coordinates():
         return jsonify({"error": "Could not extract coordinates"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',debug=True,port=8000)
+    app.run(host='0.0.0.0', debug=True, port=8000)
