@@ -40,6 +40,7 @@ def home():
 def get_coordinates():
     data = request.get_json()
     map_url = data.get('url')
+    print(f"hit got data {map_url}")
 
     if not map_url:
         return jsonify({"error": "Missing 'url' in request"}), 400
