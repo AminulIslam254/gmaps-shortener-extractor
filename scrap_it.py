@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
 import re
 import requests
@@ -17,20 +19,29 @@ def extract_coordinates(map_url):
     options.add_argument("--remote-debugging-port=9222") 
     options.add_argument("--window-size=1920,1080")
 
-    driver = webdriver.Chrome(options=options)
-    driver.get(map_url)
+    driver = None
+    try:
+        driver = webdriver.Chrome(options=options)
+        driver.get(map_url)
 
-    time.sleep(5)
+        WebDriverWait(driver, 10).until(lambda d: '@' in d.current_url)
 
-    current_url = driver.current_url
-    driver.quit()
+        current_url = driver.current_url
+        print(f"[DEBUG] Current redirected URL: {current_url}")
 
-    match = re.search(r'@([0-9\.-]+),([0-9\.-]+)', current_url)
-    if match:
-        lat = float(match.group(1))
-        lng = float(match.group(2))
-        return lat, lng
+        match = re.search(r'@([0-9\.-]+),([0-9\.-]+)', current_url)
+        if match:
+            lat = float(match.group(1))
+            lng = float(match.group(2))
+            return lat, lng
+    except Exception as e:
+        print(f"[ERROR] Failed to extract coordinates: {e}")
+    finally:
+        if driver:
+            driver.quit()
+
     return None, None
+
 
 @app.route('/', methods=['GET'])
 def home():
