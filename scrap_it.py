@@ -3,6 +3,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+
 import time
 import re
 import requests
@@ -42,6 +44,74 @@ def extract_coordinates(map_url):
 
     return None, None
 
+def extract_coordinates_from_url(url):
+    match = re.search(r'@([0-9\.-]+),([0-9\.-]+)', url)
+    if match:
+        lat = float(match.group(1))
+        lng = float(match.group(2))
+        return lat, lng
+    return None, None
+
+
+def create_driver():
+    options = Options()
+    options.add_argument("--headless=new") 
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-setuid-sandbox")
+    options.add_argument("--remote-debugging-port=9222") 
+    options.add_argument("--window-size=1920,1080")
+    driver = webdriver.Chrome(options=options)
+    return driver
+
+
+def scrape_places(map_search_url):
+    driver = create_driver()
+    try:
+        driver.get(map_search_url)
+
+        wait = WebDriverWait(driver, 15)
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.Nv2PK.Q2HXcd.THOPZb")))
+
+        time.sleep(2)
+
+        places = []
+
+        results = driver.find_elements(By.CSS_SELECTOR, "div.Nv2PK.Q2HXcd.THOPZb")
+
+        for r in results[:5]:
+            try:
+                name = r.find_element(By.CSS_SELECTOR, "div.qBF1Pd.fontHeadlineSmall").text
+            except:
+                name = None
+    
+            try:
+                place_link = r.find_element(By.CSS_SELECTOR, "a.hfpxzc").get_attribute("href")
+                match = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', place_link)
+                if match:
+                    lat = float(match.group(1))
+                    lng = float(match.group(2))
+                else:
+                    lat, lng = None, None
+            except:
+                lat, lng = None, None
+
+            places.append({
+                "name": name,
+                "latitude": lat,
+                "longitude": lng
+            })
+
+        return places
+
+    except Exception as e:
+        print(f"[ERROR] scraping places failed: {e}")
+        return []
+    finally:
+        driver.quit()
+
+
 
 @app.route('/', methods=['GET'])
 def home():
@@ -65,6 +135,20 @@ def get_coordinates():
         return jsonify({"latitude": lat, "longitude": lng})
     else:
         return jsonify({"error": "Could not extract coordinates"}), 500
+
+@app.route('/scrape-places', methods=['POST'])
+def scrape_places_route():
+    data = request.get_json()
+    url = data.get('url')
+    if not url:
+        return jsonify({"error": "Missing 'url' in request"}), 400
+
+    places = scrape_places(url)
+    if places:
+        return jsonify({"places": places})
+    else:
+        return jsonify({"error": "No places found or scraping failed"}), 500
+
 
 if __name__ == '__main__':
     import os
