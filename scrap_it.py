@@ -11,22 +11,41 @@ import requests
 
 app = Flask(__name__)
 
-def extract_coordinates(map_url):
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-setuid-sandbox")
-    options.add_argument("--remote-debugging-port=9222") 
-    options.add_argument("--window-size=1920,1080")
 
-    driver = None
+options = Options()
+options.add_argument("--headless=new") 
+options.add_argument("--disable-gpu")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-setuid-sandbox")
+options.add_argument("--remote-debugging-port=9222") 
+
+options.add_argument("--disable-extensions")
+options.add_argument("--disable-infobars")
+options.add_argument("--disable-popup-blocking")
+options.add_argument("--disable-notifications")
+options.add_argument("--blink-settings=imagesEnabled=false")
+options.add_argument("--disable-background-networking")
+options.add_argument("--disable-background-timer-throttling")
+options.add_argument("--disable-backgrounding-occluded-windows")
+options.add_argument("--disable-renderer-backgrounding")
+options.add_argument("--disable-client-side-phishing-detection")
+options.add_argument("--disable-default-apps")
+options.add_argument("--no-first-run")
+options.add_argument("--no-zygote")
+
+options.add_argument("--window-size=800,600")
+
+driver = webdriver.Chrome(options=options)
+
+
+
+def extract_coordinates(map_url):
     try:
-        driver = webdriver.Chrome(options=options)
         driver.get(map_url)
 
-        WebDriverWait(driver, 10).until(lambda d: '@' in d.current_url)
+        while '@' not in driver.current_url:
+            time.sleep(0.1)
 
         current_url = driver.current_url
         print(f"[DEBUG] Current redirected URL: {current_url}")
@@ -38,43 +57,17 @@ def extract_coordinates(map_url):
             return lat, lng
     except Exception as e:
         print(f"[ERROR] Failed to extract coordinates: {e}")
-    finally:
-        if driver:
-            driver.quit()
 
     return None, None
 
-def extract_coordinates_from_url(url):
-    match = re.search(r'@([0-9\.-]+),([0-9\.-]+)', url)
-    if match:
-        lat = float(match.group(1))
-        lng = float(match.group(2))
-        return lat, lng
-    return None, None
-
-
-def create_driver():
-    options = Options()
-    options.add_argument("--headless=new") 
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-setuid-sandbox")
-    options.add_argument("--remote-debugging-port=9222") 
-    options.add_argument("--window-size=1920,1080")
-    driver = webdriver.Chrome(options=options)
-    return driver
 
 
 def scrape_places(map_search_url):
-    driver = create_driver()
     try:
         driver.get(map_search_url)
 
-        wait = WebDriverWait(driver, 15)
+        wait = WebDriverWait(driver, 10)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.Nv2PK.Q2HXcd.THOPZb")))
-
-        time.sleep(2)
 
         places = []
 
@@ -108,8 +101,7 @@ def scrape_places(map_search_url):
     except Exception as e:
         print(f"[ERROR] scraping places failed: {e}")
         return []
-    finally:
-        driver.quit()
+    
 
 
 
@@ -121,7 +113,6 @@ def home():
 def get_coordinates():
     data = request.get_json()
     map_url = data.get('url')
-    print(f"hit got data {map_url}")
 
     if not map_url:
         return jsonify({"error": "Missing 'url' in request"}), 400
